@@ -23,6 +23,8 @@ public class SobelRenderFeature : ScriptableRendererFeature
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            if (sobelShader == null) return;  // Ensure the shader is loaded
+
             CommandBuffer cmd = CommandBufferPool.Get("SobelFilter");
 
             int kernelHandle = sobelShader.FindKernel("CSMain");
@@ -54,11 +56,11 @@ public class SobelRenderFeature : ScriptableRendererFeature
     }
 
     SobelPass sobelPass;
-    public ComputeShader sobelShader;
 
     public override void Create()
     {
-        sobelPass = new SobelPass(sobelShader)
+        ComputeShader shader = Resources.Load<ComputeShader>("Assets/ImpactCompute");  // Load the shader from the specified path
+        sobelPass = new SobelPass(shader)
         {
             renderPassEvent = RenderPassEvent.AfterRenderingOpaques
         };
@@ -66,7 +68,13 @@ public class SobelRenderFeature : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
-        sobelPass.Setup(renderer.cameraColorTarget);
-        renderer.EnqueuePass(sobelPass);
+        var stack = VolumeManager.instance.stack;
+        var customSobel = stack.GetComponent<CustomSobel>();
+
+        if (customSobel != null && customSobel.IsActive())
+        {
+            sobelPass.Setup(renderer.cameraColorTarget);
+            renderer.EnqueuePass(sobelPass);
+        }
     }
 }

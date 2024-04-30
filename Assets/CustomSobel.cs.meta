@@ -1,10 +1,9 @@
 fileFormatVersion: 2
-guid: b1c5f791c0a1ff5c29d253bc863f33cd
+guid: 8595ff84eeaede8448e51e43bcf75456
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences:
-  - sobelShader: {fileID: 7200000, guid: 7a4687479a3d633a3955d1ba01a1b8ab, type: 3}
+  defaultReferences: []
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
