@@ -11,6 +11,6 @@ public class CustomSobel : VolumeComponent, IPostProcessComponent
     public BoolParameter isEnabled = new BoolParameter(true);  // To toggle the effect on/off
     public FloatParameter threshold = new FloatParameter(1f);  // Example parameter for the Sobel filter
 
-    public bool IsActive() => isEnabled.value;  // Returns true if the effect is enabled
+    public bool IsActive() => true;  // Returns true if the effect is enabled
     public bool IsTileCompatible() => true;  // Compatible with tiled rendering
 }

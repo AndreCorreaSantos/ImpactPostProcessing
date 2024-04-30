@@ -5,9 +5,8 @@ using UnityEngine.Experimental.Rendering;
 
 public class SobelRenderFeature : ScriptableRendererFeature
 {
-    public bool isEnabled = false;
 
-    SobelPass sobelPass;
+    private SobelPass sobelPass;
     public ComputeShader sobelShader;
 
     public override void Create()
@@ -23,13 +22,4 @@ public class SobelRenderFeature : ScriptableRendererFeature
         renderer.EnqueuePass(sobelPass);
     }
 
-    public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
-    {
-        var stack = VolumeManager.instance.stack;
-        var customSobel = stack.GetComponent<CustomSobel>();
-        if (customSobel != null && customSobel.IsActive())
-        {
-            sobelPass.Setup(renderer.cameraColorTargetHandle);
-        }
-    }
 }
