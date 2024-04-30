@@ -1,80 +1,97 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Experimental.Rendering;
 
 public class SobelRenderFeature : ScriptableRendererFeature
 {
     class SobelPass : ScriptableRenderPass
     {
         ComputeShader sobelShader;
-        RenderTargetIdentifier source;
-        RenderTargetHandle temporaryColorTexture;
+        RTHandle temporaryColorTexture;
+        RTHandle source;
 
         public SobelPass(ComputeShader shader)
         {
             sobelShader = shader;
-            temporaryColorTexture.Init("_TemporaryColorTexture");
         }
 
-        public void Setup(RenderTargetIdentifier source)
+        public void Setup(RTHandle source)
         {
             this.source = source;
+            if (temporaryColorTexture == null)
+            {
+                temporaryColorTexture = RTHandles.Alloc(
+                    scaleFactor: Vector2.one,
+                    slices: TextureXR.slices,
+                    dimension: TextureDimension.Tex2D,
+                    colorFormat: GraphicsFormat.R8G8B8A8_UNorm,
+                    enableRandomWrite: true,
+                    useDynamicScale: true,
+                    name: "SobelFilterOutputTexture"
+                );
+            }
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            if (sobelShader == null) return;  // Ensure the shader is loaded
+            if (sobelShader == null || temporaryColorTexture == null) return;
 
             CommandBuffer cmd = CommandBufferPool.Get("SobelFilter");
-
             int kernelHandle = sobelShader.FindKernel("CSMain");
-
-            // Get the camera texture descriptor for creating temporary textures
             RenderTextureDescriptor descriptor = renderingData.cameraData.cameraTargetDescriptor;
-            descriptor.depthBufferBits = 0;  // Ensure depth buffer bits are zero for a 2D effect
+            descriptor.depthBufferBits = 0;
 
-            // Set input and output textures for your compute shader
-            cmd.GetTemporaryRT(temporaryColorTexture.id, descriptor, FilterMode.Point); // Avoid smoothing with Point filtering
+            // Set the compute shader parameters
             cmd.SetComputeTextureParam(sobelShader, kernelHandle, "Input", source);
-            cmd.SetComputeTextureParam(sobelShader, kernelHandle, "Output", temporaryColorTexture.Identifier());
+            cmd.SetComputeTextureParam(sobelShader, kernelHandle, "Output", temporaryColorTexture);
 
             // Dispatch the compute shader
             int groupX = Mathf.CeilToInt(descriptor.width / 16.0f);
             int groupY = Mathf.CeilToInt(descriptor.height / 16.0f);
-
             cmd.DispatchCompute(sobelShader, kernelHandle, groupX, groupY, 1);
 
-            // Blit the output texture back to the camera target
-            cmd.Blit(temporaryColorTexture.Identifier(), source);
+            // Blit the result from temporaryColorTexture to the source
+            cmd.Blit(temporaryColorTexture, source);
 
+            // Execute the command buffer
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
+        }
 
-            // Cleanup temporary resources
-            cmd.ReleaseTemporaryRT(temporaryColorTexture.id);
+        public override void OnCameraCleanup(CommandBuffer cmd)
+        {
+            if (temporaryColorTexture != null)
+            {
+                RTHandles.Release(temporaryColorTexture);
+                temporaryColorTexture = null;
+            }
         }
     }
 
     SobelPass sobelPass;
+    public ComputeShader sobelShader;
 
     public override void Create()
     {
-        ComputeShader shader = Resources.Load<ComputeShader>("Assets/ImpactCompute");  // Load the shader from the specified path
-        sobelPass = new SobelPass(shader)
+        sobelPass = new SobelPass(sobelShader)
         {
-            renderPassEvent = RenderPassEvent.AfterRenderingOpaques
+            renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing
         };
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
+        renderer.EnqueuePass(sobelPass);
+    }
+
+    public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
+    {
         var stack = VolumeManager.instance.stack;
         var customSobel = stack.GetComponent<CustomSobel>();
-
         if (customSobel != null && customSobel.IsActive())
         {
-            sobelPass.Setup(renderer.cameraColorTarget);
-            renderer.EnqueuePass(sobelPass);
+            sobelPass.Setup(renderer.cameraColorTargetHandle);
         }
     }
 }
