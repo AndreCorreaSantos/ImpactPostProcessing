@@ -3,6 +3,9 @@
 Texture2D<float4> Input;
 RWTexture2D<float4> Output;
 
+float Threshold;
+float Time;
+
 [numthreads(16,16,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
@@ -21,6 +24,17 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     // Convert to grayscale by taking the luminance (brightness)
     float grayscale = dot(edgeStrength.rgb, float3(0.2126, 0.7152, 0.0722));
+
+    // Determine if it's time to invert the output
+    bool shouldInvert = (fmod(Time, 0.2) < 0.05); // Invert every 0.1 second
+
+    grayscale = (grayscale > Threshold) ? 1.0 : 0.0; // Apply threshold
+
+    //Invert the grayscale value if it's time to invert
+   if (shouldInvert) {
+       grayscale = 1.0 - grayscale; //Invert grayscale value
+   }   
+
 
     // Set the output color with the grayscale value
     Output[id.xy] = float4(grayscale, grayscale, grayscale, 1.0);
